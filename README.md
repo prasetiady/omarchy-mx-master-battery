@@ -1,13 +1,13 @@
 # MX Master 2S battery for Omarchy
 
-Show the battery level and charging state of a Logitech MX Master 2S in the Omarchy tray. Open the tray drawer and right-click the mouse icon to see the battery information.
+Show the battery level and charging state of a Logitech MX Master 2S in the Omarchy tray. Open the tray drawer and click the mouse icon to see the battery information.
 
 The indicator checks the battery every minute. It uses Solaar if it is installed and can read the mouse. It tries up to three times, with a two-second delay between attempts and a 10-second timeout for each attempt. If all attempts fail, it uses UPower and Linux battery data. UPower can mark its percentage as unreliable, so treat it as an estimate.
 
 ## Requirements
 
 - Omarchy 4.0.6-1; compatibility with other versions has not been verified.
-- UPower, Python, PyGObject, GTK 3, and Ayatana AppIndicator.
+- UPower, Python, and PyGObject.
 - A connected Logitech MX Master 2S.
 - Optional: Solaar, with permission to access the Logitech receiver.
 
