@@ -3,8 +3,10 @@
 
 import os
 import re
+import shutil
 import subprocess
 import threading
+import time
 from pathlib import Path
 
 import gi
@@ -34,16 +36,20 @@ indicator.set_menu(menu)
 
 def read_battery():
     env = dict(os.environ, LC_ALL="C")
-    try:
-        output = subprocess.check_output(
-            ["solaar", "show", "MX Master 2S"], text=True, env=env,
-            stderr=subprocess.DEVNULL, timeout=10,
-        )
-        match = re.search(r"Battery:\s*(\d+)%\s*,\s*BatteryStatus\.([A-Z_]+)", output)
-        if match:
-            return match.group(1) + "%", match.group(2).replace("_", " ").capitalize()
-    except (OSError, subprocess.SubprocessError):
-        pass
+    if shutil.which("solaar"):
+        for attempt in range(3):
+            try:
+                output = subprocess.check_output(
+                    ["solaar", "show", "MX Master 2S"], text=True, env=env,
+                    stderr=subprocess.DEVNULL, timeout=10,
+                )
+                match = re.search(r"Battery:\s*(\d+)%\s*,\s*BatteryStatus\.([A-Z_]+)", output)
+                if match:
+                    return match.group(1) + "%", match.group(2).replace("_", " ").capitalize()
+            except (OSError, subprocess.SubprocessError):
+                pass
+            if attempt < 2:
+                time.sleep(2)
     try:
         paths = subprocess.check_output(["upower", "-e"], text=True, env=env, timeout=5).splitlines()
         for path in paths:

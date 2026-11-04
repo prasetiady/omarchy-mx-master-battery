@@ -4,7 +4,7 @@ Show the battery level and charging state of a Logitech MX Master 2S in the Omar
 
 ![MX Master 2S battery menu in the Omarchy tray](screenshot.png)
 
-The plugin uses Solaar if it is installed and can read the mouse. Otherwise, it uses UPower and Linux battery data. UPower can mark its percentage as unreliable, so treat it as an estimate.
+The plugin uses Solaar if it is installed and can read the mouse. It retries failed Solaar reads up to three times, with two seconds between attempts. If all attempts fail, it uses UPower and Linux battery data. UPower can mark its percentage as unreliable, so treat it as an estimate.
 
 ## Requirements
 
