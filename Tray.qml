@@ -216,7 +216,7 @@ BarWidget {
     persistTrayState(p, h)
   }
 
-  visible: pinnedItems.length > 0 || drawerCount > 0
+  visible: allItems.length > 0
   clip: false
   implicitWidth: root.vertical ? root.barSize : trayContent.implicitWidth
   implicitHeight: root.vertical ? trayContent.implicitHeight : root.barSize
@@ -848,7 +848,10 @@ BarWidget {
         else if (root.bar)
           root.bar.showTooltip(trayItemRoot, root.trayTooltip(modelData))
       }
-      onExited: if (root.bar) root.bar.hideTooltip(trayItemRoot)
+      onExited: {
+        if (root.bar) root.bar.hideTooltip(trayItemRoot)
+        if (modelData.id === "mx-master-battery" && root.activeTrayItem === modelData) root.close()
+      }
       onPressed: function(mouse) {
         if (mouse.button === Qt.RightButton) {
           trayItemRoot.displayMenu(mouse)

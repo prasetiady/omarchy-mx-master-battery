@@ -4,6 +4,7 @@
 import os
 import re
 import subprocess
+import threading
 from pathlib import Path
 
 import gi
@@ -31,7 +32,7 @@ menu.show_all()
 indicator.set_menu(menu)
 
 
-def update():
+def read_battery():
     env = dict(os.environ, LC_ALL="C")
     try:
         output = subprocess.check_output(
@@ -40,9 +41,7 @@ def update():
         )
         match = re.search(r"Battery:\s*(\d+)%\s*,\s*BatteryStatus\.([A-Z_]+)", output)
         if match:
-            battery.set_label("Battery: " + match.group(1) + "%")
-            state.set_label("State: " + match.group(2).replace("_", " ").capitalize())
-            return True
+            return match.group(1) + "%", match.group(2).replace("_", " ").capitalize()
     except (OSError, subprocess.SubprocessError):
         pass
     try:
@@ -50,7 +49,10 @@ def update():
         for path in paths:
             if "/mouse_" not in path:
                 continue
-            info = subprocess.check_output(["upower", "-i", path], text=True, env=env, timeout=5)
+            try:
+                info = subprocess.check_output(["upower", "-i", path], text=True, env=env, timeout=5)
+            except (OSError, subprocess.SubprocessError):
+                continue
             fields = {}
             for line in info.splitlines():
                 key, sep, value = line.strip().partition(":")
@@ -59,14 +61,12 @@ def update():
             if fields.get("model", "").lower() != "logitech mx master 2s":
                 continue
             if fields.get("present") == "no":
-                break
+                continue
             level = fields.get("battery-level", "unknown")
             percentage = fields.get("percentage", "")
             if percentage:
                 level = percentage.split()[0]
-            battery.set_label("Battery: " + level.capitalize())
-            state.set_label("State: " + fields.get("state", "unknown").capitalize())
-            return True
+            return level.capitalize(), fields.get("state", "unknown").capitalize()
     except (OSError, subprocess.SubprocessError):
         pass
     for device in Path("/sys/class/power_supply").glob("hidpp_battery_*"):
@@ -74,18 +74,49 @@ def update():
             model = (device / "model_name").read_text().strip().lower()
             if "mx master 2s" not in model:
                 continue
-            level = (device / "capacity_level").read_text().strip()
-            status = (device / "status").read_text().strip()
-            battery.set_label("Battery: " + level.capitalize())
-            state.set_label("State: " + status.capitalize())
-            return True
+            try:
+                level = (device / "capacity").read_text().strip() + "%"
+            except OSError:
+                try:
+                    level = (device / "capacity_level").read_text().strip()
+                except OSError:
+                    level = "Unknown"
+            try:
+                status = (device / "status").read_text().strip()
+            except OSError:
+                status = "Unknown"
+            return level.capitalize(), status.capitalize()
         except OSError:
             continue
-    battery.set_label("Battery: Unavailable")
-    state.set_label("Mouse disconnected or battery data unavailable")
+    return "Unavailable", "Mouse disconnected or battery data unavailable"
+
+
+refreshing = False
+
+
+def apply_battery(result):
+    global refreshing
+    battery.set_label("Battery: " + result[0])
+    state.set_label("State: " + result[1])
+    refreshing = False
+    return False
+
+
+def update():
+    global refreshing
+    if not refreshing:
+        refreshing = True
+        def collect():
+            try:
+                result = read_battery()
+            except Exception:
+                result = ("Unavailable", "Battery data unavailable")
+            GLib.idle_add(apply_battery, result)
+        threading.Thread(target=collect, daemon=True).start()
     return True
 
 
-update()
-GLib.timeout_add_seconds(60, update)
-Gtk.main()
+if __name__ == "__main__":
+    update()
+    GLib.timeout_add_seconds(60, update)
+    Gtk.main()
