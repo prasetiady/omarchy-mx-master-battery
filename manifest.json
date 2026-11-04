@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "id": "prasetiady.mx-master-battery",
+  "name": "MX Master 2S battery",
+  "version": "1.0.0",
+  "author": "prasetiady",
+  "description": "Mouse battery indicator and tray integration",
+  "kinds": ["bar-widget", "service"],
+  "entryPoints": {
+    "barWidget": "Tray.qml",
+    "service": "Service.qml"
+  },
+  "barWidget": {
+    "displayName": "System tray with mouse battery",
+    "category": "Status",
+    "allowMultiple": false,
+    "defaultSection": "right"
+  },
+  "omarchy": {
+    "clonedFrom": "omarchy.tray"
+  }
+}

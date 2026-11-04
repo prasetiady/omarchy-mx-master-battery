@@ -1,0 +1,91 @@
+#!/usr/bin/python
+"""Show the MX Master 2S battery level in the system tray."""
+
+import os
+import re
+import subprocess
+from pathlib import Path
+
+import gi
+
+gi.require_version("Gtk", "3.0")
+gi.require_version("AyatanaAppIndicator3", "0.1")
+from gi.repository import AyatanaAppIndicator3, GLib, Gtk
+
+
+indicator = AyatanaAppIndicator3.Indicator.new(
+    "mx-master-battery", "input-mouse", AyatanaAppIndicator3.IndicatorCategory.HARDWARE
+)
+indicator.set_status(AyatanaAppIndicator3.IndicatorStatus.ACTIVE)
+menu = Gtk.Menu()
+title = Gtk.MenuItem(label="MX Master 2S")
+title.set_sensitive(False)
+menu.append(title)
+battery = Gtk.MenuItem(label="Battery: Checking…")
+battery.set_sensitive(False)
+menu.append(battery)
+state = Gtk.MenuItem(label="")
+state.set_sensitive(False)
+menu.append(state)
+menu.show_all()
+indicator.set_menu(menu)
+
+
+def update():
+    env = dict(os.environ, LC_ALL="C")
+    try:
+        output = subprocess.check_output(
+            ["solaar", "show", "MX Master 2S"], text=True, env=env,
+            stderr=subprocess.DEVNULL, timeout=10,
+        )
+        match = re.search(r"Battery:\s*(\d+)%\s*,\s*BatteryStatus\.([A-Z_]+)", output)
+        if match:
+            battery.set_label("Battery: " + match.group(1) + "%")
+            state.set_label("State: " + match.group(2).replace("_", " ").capitalize())
+            return True
+    except (OSError, subprocess.SubprocessError):
+        pass
+    try:
+        paths = subprocess.check_output(["upower", "-e"], text=True, env=env, timeout=5).splitlines()
+        for path in paths:
+            if "/mouse_" not in path:
+                continue
+            info = subprocess.check_output(["upower", "-i", path], text=True, env=env, timeout=5)
+            fields = {}
+            for line in info.splitlines():
+                key, sep, value = line.strip().partition(":")
+                if sep:
+                    fields[key] = value.strip()
+            if fields.get("model", "").lower() != "logitech mx master 2s":
+                continue
+            if fields.get("present") == "no":
+                break
+            level = fields.get("battery-level", "unknown")
+            percentage = fields.get("percentage", "")
+            if percentage:
+                level = percentage.split()[0]
+            battery.set_label("Battery: " + level.capitalize())
+            state.set_label("State: " + fields.get("state", "unknown").capitalize())
+            return True
+    except (OSError, subprocess.SubprocessError):
+        pass
+    for device in Path("/sys/class/power_supply").glob("hidpp_battery_*"):
+        try:
+            model = (device / "model_name").read_text().strip().lower()
+            if "mx master 2s" not in model:
+                continue
+            level = (device / "capacity_level").read_text().strip()
+            status = (device / "status").read_text().strip()
+            battery.set_label("Battery: " + level.capitalize())
+            state.set_label("State: " + status.capitalize())
+            return True
+        except OSError:
+            continue
+    battery.set_label("Battery: Unavailable")
+    state.set_label("Mouse disconnected or battery data unavailable")
+    return True
+
+
+update()
+GLib.timeout_add_seconds(60, update)
+Gtk.main()
